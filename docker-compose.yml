@@ -1,0 +1,8 @@
+version: '3.7'
+
+services:
+  ajam:
+    build: .
+    env_file: .env
+    volumes:
+      - ./:/app
