@@ -47,6 +47,12 @@ COPY . ${WORKDIR}/
 RUN gem build asterisk-ajam \
 && gem=$(find *.gem -printf "%T@ %p\n" | sort -n | cut -d' ' -f 2- | tail -n 1) \
 && echo "Installing gem from file ${gem}" \
-&& gem install ${gem}
+&& gem install ${gem} --no-rdoc --no-ri \
+&& gem install libxml-to-hash ox pry --no-rdoc --no-ri \
+\
+&& rm -rf /usr/lib/ruby/gems/*/cache/* \
+          /var/cache/apk/* \
+          /tmp/* \
+          /var/tmp/*
 
 SHELL ["bash", "-c"]
