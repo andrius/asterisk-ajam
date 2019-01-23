@@ -5,10 +5,10 @@ require 'net/https' # this will also include net/http and uri
 module Asterisk
   module AJAM
     #
-    # == Session class for Asterisk AJAM 
+    # == Session class for Asterisk AJAM
     # Used to controll connection to Astersik AJAM via HTTP protocol
     #
-    
+
     # Session errors
     # This class extends StandardError and raises when problem with
     # AJAM URL found, for ex: missing scheme or hostname
@@ -25,7 +25,7 @@ module Asterisk
     class NotLoggedIn < StandardError; end #:nodoc:
 
     # This class establish connection to AJAM server using TCP connection
-    # and HTTP protocol. 
+    # and HTTP protocol.
     class Session
 
       # Asterisk AJAM server URI
@@ -44,7 +44,7 @@ module Asterisk
       # http access password
       attr_accessor :proxy_pass
 
-      # Create new Asterisk AJAM session without initializing 
+      # Create new Asterisk AJAM session without initializing
       # TCP network connection
       def initialize(options={})
         self.uri        = options[:uri]
@@ -55,7 +55,7 @@ module Asterisk
         @use_ssl        = options[:use_ssl]
       end
 
-      # login action. Also stores session identificator for 
+      # login action. Also stores session identificator for
       # sending many actions within same session
       def login
         ami_user_valid?
@@ -74,85 +74,86 @@ module Asterisk
         /^[0-9a-z]{8}$/.match(@response.session_id).is_a? MatchData
       end
 
-      private
-        # handling action_ methods
-        def method_missing(method, *args)
-          method = method.id2name
-          raise NoMethodError,
-            "Undefined method #{method}" unless /^action_\w+$/.match(method)
-          raise NotLoggedIn, "Not logged in" unless connected?
-          send_action method.sub(/^action_/,'').to_sym, *args
-        end
+      # send action to Asterisk AJAM server
+      def send_action(action, params={})
+        set_params Hash[action: action].merge params
+        @response = http_send_action
+      end
 
-        # send action to Asterisk AJAM server
-        def send_action(action, params={})
-          set_params Hash[action: action].merge params
-          @response = http_send_action
-        end
+    private
 
-        # Send HTTP request to AJAM server using "#uri"
-        def http_send_action
-          http = http_inst
-          req  = http_post
-          Response.new http.request req
-        end
+      # handling action_ methods
+      def method_missing(method, *args)
+        method = method.id2name
+        raise NoMethodError,
+          "Undefined method #{method}" unless /^action_\w+$/.match(method)
+        raise NotLoggedIn, "Not logged in" unless connected?
+        send_action method.sub(/^action_/,'').to_sym, *args
+      end
 
-        # create new Net::HTTP instance
-        def http_inst
-          http = Net::HTTP.new(@uri.host, @uri.port)
-          if @uri.scheme.downcase.eql? 'https'
-            http.use_ssl = true
-            http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-          end
-          http
-        end
+      # Send HTTP request to AJAM server using "#uri"
+      def http_send_action
+        http = http_inst
+        req  = http_post
+        Response.new http.request req
+      end
 
-        # create new Net::HTTP::Post instance
-        def http_post
-          req  = Net::HTTP::Post.new @uri.request_uri, request_headers
-          req.set_form_data params
-          req.basic_auth @proxy_user, @proxy_pass if @proxy_pass && @proxy_user
-          req
+      # create new Net::HTTP instance
+      def http_inst
+        http = Net::HTTP.new(@uri.host, @uri.port)
+        if @uri.scheme.downcase.eql? 'https'
+          http.use_ssl = true
+          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
         end
+        http
+      end
 
-        # Post parameters
-        def params
-          @params
-        end
+      # create new Net::HTTP::Post instance
+      def http_post
+        req  = Net::HTTP::Post.new @uri.request_uri, request_headers
+        req.set_form_data params
+        req.basic_auth @proxy_user, @proxy_pass if @proxy_pass && @proxy_user
+        req
+      end
 
-        # set AJAM POST parameters
-        def set_params(params)
-          @params = params
-        end
+      # Post parameters
+      def params
+        @params
+      end
 
-        # verifies if AMI username is set and not empty
-        def ami_user_valid?
-          raise InvalidAMILogin,
-            "Missing AMI username" if @ami_user.to_s.empty?
-        end
+      # set AJAM POST parameters
+      def set_params(params)
+        @params = params
+      end
 
-        # verifies if AMI password (secret) is set and not empty
-        def ami_pass_valid?
-          raise InvalidAMILogin,
-            "Missing AMI user pass" if @ami_password.to_s.empty?
-        end
+      # verifies if AMI username is set and not empty
+      def ami_user_valid?
+        raise InvalidAMILogin,
+          "Missing AMI username" if @ami_user.to_s.empty?
+      end
 
-        # setup AJAM URI
-        def uri=(uri)
-          @uri = URI.parse uri
-          raise InvalidURI,
-            "No AJAM URI given" unless @uri
-          raise InvalidURI,
-            "Unsupported uri.scheme" unless %w/http https/.include? @uri.scheme
-        end
+      # verifies if AMI password (secret) is set and not empty
+      def ami_pass_valid?
+        raise InvalidAMILogin,
+          "Missing AMI user pass" if @ami_password.to_s.empty?
+      end
 
-        # initialize request headers for Net::HTTPRequest class
-        def request_headers
-          return nil unless @response
-          Hash[
-            'Cookie' => %Q!mansession_id="#{@response.session_id}"!
-          ]
-        end
+      # setup AJAM URI
+      def uri=(uri)
+        @uri = URI.parse uri
+        raise InvalidURI,
+          "No AJAM URI given" unless @uri
+        raise InvalidURI,
+          "Unsupported uri.scheme" unless %w/http https/.include? @uri.scheme
+      end
+
+      # initialize request headers for Net::HTTPRequest class
+      def request_headers
+        return nil unless @response
+        Hash[
+          'Cookie' => %Q!mansession_id="#{@response.session_id}"!
+        ]
+      end
     end
   end
 end
